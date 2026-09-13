@@ -77,6 +77,8 @@
         <div class="st"><span>⚡</span><b>${S.xpTotal}</b><small>XP łącznie</small></div>
         <div class="st"><span>⏱️</span><b>${totalMin >= 120 ? Math.round(totalMin / 60) + ' h' : totalMin + ' min'}</b><small>czas nauki</small></div>
         <div class="st"><span>🎯</span><b>${tot ? Math.round(cor / tot * 100) : 0}%</b><small>trafność (${tot} odp.)</small></div>
+        <div class="st"><span>🎤</span><b>${S.speakOk || 0}</b><small>poprawnie wypowiedziane</small></div>
+        <div class="st"><span>📍</span><b>${S.stressHits || 0}</b><small>trafione akcenty</small></div>
       </section>
       <section class="card">
         <div class="card-h"><h3>Aktywność</h3><span class="small muted">ostatnie ${weeks} tygodni</span></div>
@@ -120,6 +122,7 @@
         ${toggle('autoSpeak', 'Czytaj po odpowiedzi', 'Po każdej odpowiedzi odtwarza słowo lub całe zdanie')}
         ${toggle('showTranscr', 'Pokazuj transkrypcję', 'Wymowa polskimi literami, np. молоко́ → [małakó]')}
         ${toggle('showStress', 'Pokazuj akcent', 'Kreska nad akcentowaną samogłoską (а́)')}
+        ${Speech.supported ? toggle('speakTasks', 'Ćwiczenia mówienia w lekcjach', 'Mikrofon: aplikacja sprawdza Twoją wymowę') : '<div class="set-row small muted">🎤 Rozpoznawanie mowy niedostępne w tej przeglądarce (działa w Chrome i Safari).</div>'}
       </section>
       <section class="card">
         <h3>🎯 Nauka</h3>

@@ -599,6 +599,7 @@ RU.vocab.push(
 кста́ти|à propos, przy okazji
 ина́че|inaczej, w przeciwnym razie
 всё-таки|mimo wszystko
+же|przecież; -że (wzmocnienie)|Я же говори́л! – Przecież mówiłem!
 зна́чит|czyli, znaczy
 то есть|to znaczy
 разуме́ется|oczywiście

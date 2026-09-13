@@ -6,6 +6,7 @@
     const S = Store.state;
     const doneN = C.grammar.filter(g => S.grammar[g.id] && S.grammar[g.id].done).length;
     view.innerHTML = App.header({ title: 'Gramatyka', sub: `${doneN}/${C.grammar.length} lekcji ukończonych` }) +
+      `<section class="grid2"><button class="action-tile hot" data-go="review">${U.icon('brain')}<b>Trening gramatyki</b><span>15 pytań z przerobionych lekcji</span></button><a class="action-tile" href="#/grammar/${(C.grammar.find(g => !(S.grammar[g.id] && S.grammar[g.id].done)) || C.grammar[0]).id}">${U.icon('play')}<b>Następna lekcja</b><span>${U.esc((C.grammar.find(g => !(S.grammar[g.id] && S.grammar[g.id].done)) || C.grammar[0]).title)}</span></a></section>` +
       `<section class="search-box">${U.icon('search')}<input id="gsearch" placeholder="Szukaj: celownik, aspekt, który…" /></section>` +
       C.LEVELS.map(L => {
         const list = C.grammar.filter(g => g.level === L.id);
@@ -21,6 +22,7 @@
           }).join('')}</div>
         </section>`;
       }).join('');
+    view.onclick = e => { if (e.target.closest('[data-go="review"]')) Sessions.grammarReview(); };
     U.$('#gsearch', view).addEventListener('input', e => {
       const q = U.strip(e.target.value.toLowerCase().trim());
       U.$$('.g-item', view).forEach(a => { a.hidden = q && !U.strip(a.dataset.text).includes(q); });
@@ -35,6 +37,7 @@
     const prev = list[idx - 1], next = list[idx + 1];
     const r = Store.state.grammar[id];
     view.innerHTML = App.header({ title: esc(g.title), back: '#/grammar', sub: `${App.levelChip(g.level)} ${esc(App.stressView(g.subtitle))}` }) + `
+      <section class="reader-bar card"><button class="btn primary" data-go="playall">${U.icon('play')} Odsłuchaj przykłady</button><button class="btn ghost" data-go="playslow">🐢 Wolno</button><span class="muted small">Dotknij rosyjskiego słowa lub komórki tabeli, aby usłyszeć</span></section>
       <article class="card lesson">${U.markup(g.body)}</article>
       <section class="card center-card">
         <h3>🎯 Ćwiczenia do lekcji</h3>
@@ -47,6 +50,14 @@
         ${next ? `<a class="btn ghost" href="#/grammar/${next.id}">${esc(next.title)} →</a>` : ''}
       </nav>`;
     view.onclick = async e => {
+      const pa = e.target.closest('[data-go="playall"],[data-go="playslow"]');
+      if (pa) {
+        const exs = U.$('.lesson .ex', view);
+        if (view.dataset.playing) { TTS.stop(); delete view.dataset.playing; exs.forEach(x => x.classList.remove('speaking')); return; }
+        view.dataset.playing = 1;
+        TTS.speakList(exs.map(x => x.dataset.say), { slow: pa.dataset.go === 'playslow', gap: 700, onItem: i => { exs.forEach(x => x.classList.remove('speaking')); exs[i].classList.add('speaking'); exs[i].scrollIntoView({ block: 'center', behavior: 'smooth' }); }, onEnd: () => { delete view.dataset.playing; exs.forEach(x => x.classList.remove('speaking')); } });
+        return;
+      }
       if (!e.target.closest('[data-go="quiz"]')) return;
       const tasks = U.shuffle(g.questions).map(q => Ex.quiz(q));
       await Ex.run({

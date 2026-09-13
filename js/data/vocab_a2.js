@@ -652,6 +652,7 @@ RU.vocab.push(
 пре́жде чем|zanim
 по́сле того́ как|po tym jak
 не то́лько…, но и…|nie tylko…, ale i…
+бы|by (tryb przypuszczający)|я бы хоте́л – chciałbym
 ли|czy (partykuła pytajna)|не зна́ю, придёт ли он
 вообще́|w ogóle
 действи́тельно|rzeczywiście

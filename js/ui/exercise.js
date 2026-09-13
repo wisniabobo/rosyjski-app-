@@ -157,8 +157,8 @@
       this.sheet.className = 'ss-sheet';
       this.body.innerHTML = `
         <div class="finish">
-          <div class="fin-emoji">${score >= 90 ? '🏆' : score >= 70 ? '🎉' : score >= 50 ? '💪' : '📚'}</div>
-          <h2>${score >= 90 ? 'Wspaniale!' : score >= 70 ? 'Dobra robota!' : score >= 50 ? 'Nieźle, ćwicz dalej!' : 'Powtórz ten materiał'}</h2>
+          <div class="fin-emoji">${!res.answered ? '👋' : score >= 90 ? '🏆' : score >= 70 ? '🎉' : score >= 50 ? '💪' : '📚'}</div>
+          <h2>${!res.answered ? 'Sesja zakończona' : score >= 90 ? 'Wspaniale!' : score >= 70 ? 'Dobra robota!' : score >= 50 ? 'Nieźle, ćwicz dalej!' : 'Powtórz ten materiał'}</h2>
           <p class="muted">${esc(this.o.title || '')}</p>
           <div class="fin-stats">
             <div class="fs"><b>${score}%</b><span>poprawnie</span></div>
@@ -209,7 +209,7 @@
         return;
       }
       if (/^[1-6]$/.test(e.key) && !this.locked) { const opt = U.$$('[data-opt]', this.body)[+e.key - 1]; opt && opt.click(); }
-      if (e.key === ' ' && !e.target.matches('input')) { e.preventDefault(); const p = U.$('[data-act="play"]', this.body); p ? p.click() : (this.cur.reveal && TTS.speak(this.cur.reveal.say ?? this.cur.reveal.ru)); }
+      if (e.key === ' ' && !e.target.matches('input')) { e.preventDefault(); const p = U.$('[data-act="play"]', this.body); if (p) p.click(); else if (this.locked && this.cur.reveal) TTS.speak(this.cur.reveal.say ?? this.cur.reveal.ru); }
     }
   }
 
@@ -459,10 +459,95 @@
     }
   };
 
+  RENDER.stress = {
+    html(t) {
+      const plain = U.strip(t.word);
+      return `<div class="task stress">
+        <div class="t-label">🎯 Gdzie pada akcent?</div>
+        <div class="prompt">
+          <div class="stress-word">${[...plain].map((ch, i) => 'аеиоуыэюяАЕИОУЫЭЮЯ'.includes(ch) ? `<button class="sv" data-opt="${i}">${esc(ch)}</button>` : `<span>${esc(ch)}</span>`).join('')}</div>
+          ${t.pl ? `<div class="p-pl small-pl">${esc(t.pl)}</div>` : ''}
+        </div>
+        <p class="hint">Dotknij samogłoski, która jest akcentowana. Akcent zmienia wymowę całego słowa!</p>
+      </div>`;
+    },
+    click(a) {
+      const t = this.cur;
+      if (a.dataset.opt === undefined || this.locked) return;
+      const i = +a.dataset.opt;
+      const ok = i === t.stressIdx;
+      U.$$('.sv', this.body).forEach(b => { b.disabled = true; if (+b.dataset.opt === t.stressIdx) b.classList.add('right'); });
+      if (!ok) a.classList.add('wrong');
+      this.answer(ok);
+    }
+  };
+
+  RENDER.speak = {
+    html(t) {
+      return `<div class="task speak">
+        <div class="t-label">🎤 Powiedz na głos</div>
+        <div class="prompt">
+          <div class="p-ru">${esc(App.stressView(t.ru))}</div>
+          ${App.settings().showTranscr ? `<div class="rv-tr">[${App.trHTML(t.ru)}]</div>` : ''}
+          ${rulesHTML(t.ru)}
+          ${t.pl ? `<div class="p-pl small-pl">${esc(t.pl)}</div>` : ''}
+          <div class="rv-btns center"><button class="btn ghost small" data-act="play">${U.icon('vol')} Wzór</button><button class="btn ghost small" data-act="play-slow">🐢 Wolno</button></div>
+        </div>
+        <div class="mic-wrap">
+          <button class="mic-big" data-act="mic" aria-label="Mów">${U.icon('mic')}</button>
+          <div class="mic-status muted">Najpierw posłuchaj wzoru, potem dotknij mikrofonu i powiedz.</div>
+          <div class="speak-out"></div>
+        </div>
+        <button class="btn ghost" data-act="skip">Nie mogę teraz mówić – pomiń</button>
+      </div>`;
+    },
+    mount(t) { t.tries = 0; setTimeout(() => TTS.speak(t.ru), 300); },
+    async click(a) {
+      const t = this.cur;
+      const act = a.dataset.act;
+      if (act === 'play') return TTS.speak(t.ru);
+      if (act === 'play-slow') return TTS.speak(t.ru, { slow: true });
+      if (act === 'skip') { Speech.stop(); this.doneCount++; return this.next(); }
+      if (act !== 'mic' || this.locked || t.listening) return;
+      const status = U.$('.mic-status', this.body), out = U.$('.speak-out', this.body);
+      t.listening = true; a.classList.add('listening'); status.textContent = '🎙️ Słucham…'; out.innerHTML = '';
+      const r = await Speech.listen({ onInterim: txt => { status.textContent = '🎙️ ' + txt; } });
+      t.listening = false; a.classList.remove('listening');
+      if (this.cur !== t || this.locked) return;
+      if (!r.alts.length) { status.textContent = '⚠️ ' + Speech.errorText(r.error || 'no-speech'); if (r.error === 'not-allowed' || r.error === 'service-not-allowed') { this.doneCount++; setTimeout(() => this.next(), 1800); } return; }
+      t.tries++;
+      const cmp = Speech.compare(r.alts, t.ru);
+      const pct = Math.round(cmp.score * 100);
+      const diff = `<div class="diff">${cmp.words.map(x => `<span class="${x.ok ? 'dok' : 'dbad'}">${esc(x.w)}</span>`).join(' ')} <span class="muted small">(${pct}%)</span></div>`;
+      if (pct >= 75) return this.answer(true, { diff: `<div class="sh-your">Usłyszałem: „${esc(cmp.heard)}”</div>` + diff });
+      if (t.tries >= 3) return this.answer(false, { typed: cmp.heard, diff });
+      FX.bad();
+      status.textContent = `Usłyszałem: „${cmp.heard}” – posłuchaj wzoru i spróbuj jeszcze raz (${t.tries}/3)`;
+      out.innerHTML = diff;
+      setTimeout(() => TTS.speak(t.ru), 400);
+    }
+  };
+
+  // indeks akcentowanej samogłoski w wyrazie bez znaku akcentu
+  function stressIndex(ru) {
+    let idx = -1, pos = 0;
+    for (const ch of ru) { if (ch === '\u0301') { idx = pos - 1; continue; } pos++; }
+    return idx;
+  }
+  const stressable = w => { const r = w.ru.trim(); return !/[\s\/…]/.test(r) && (r.match(/\u0301/g) || []).length === 1 && !/ё/i.test(r) && (U.strip(r).match(/[аеиоуыэюя]/gi) || []).length >= 2; };
+
   const Ex = {
     Session,
     run: o => new Session(o).open(),
     sayFromQuestion,
+    stressable,
+    stress(w, onResult) {
+      return { type: 'stress', key: w.id + ':st', word: w.ru, pl: w.pl, stressIdx: stressIndex(w.ru), reveal: { ru: w.ru, pl: w.pl, note: w.note }, onResult, xp: 4 };
+    },
+    speak(item, onResult) {
+      const ru = item.ru.split(' / ')[0];
+      return { type: 'speak', key: (item.id || ru) + ':sp', ru, pl: item.pl, reveal: { ru, pl: item.pl }, onResult, xp: 6, noRequeue: true };
+    },
     rulesHTML,
 
     /* --- fabryki zadań --- */
@@ -483,7 +568,9 @@
     },
     typeRu(w, onResult) {
       const first = w.ru.split(' / ')[0];
-      return { type: 'type', key: w.id, label: 'Napisz po rosyjsku', promptPl: w.pl, hintNote: w.ru.includes(' / ') ? 'para aspektowa – wystarczy jedna forma' : '', answer: w.ru, reveal: { ru: w.ru, pl: w.pl, note: w.note, say: first }, onResult, xp: 6 };
+      const same = C.words.filter(x => x.id !== w.id && U.normPl(x.pl) === U.normPl(w.pl));
+      const check = val => { const r = U.check(val, w.ru); if (r !== 'bad') return r; return same.some(x => U.check(val, x.ru) === 'ok') ? 'ok' : 'bad'; };
+      return { type: 'type', key: w.id, check, label: 'Napisz po rosyjsku', promptPl: w.pl, hintNote: w.ru.includes(' / ') ? 'para aspektowa – wystarczy jedna forma' : '', answer: w.ru, reveal: { ru: w.ru, pl: w.pl, note: w.note, say: first }, onResult, xp: 6 };
     },
     listenType(w, onResult) {
       return { type: 'type', key: w.id, label: '🎧 Posłuchaj i napisz słowo', audio: w.ru, answer: w.ru, reveal: { ru: w.ru, pl: w.pl, note: w.note }, onResult, xp: 6 };
@@ -529,7 +616,7 @@
       const filled = q.q.includes('___') ? q.q.replace('___', `<u>${q.correct}</u>`) : '';
       return {
         type: 'mc', key: q.q, label: 'Wybierz poprawną odpowiedź', prompt: { q: q.q }, options: opts, correct: opts.indexOf(q.correct),
-        reveal: { ru: say, say, pl: say ? '' : q.correct, exp: q.exp, extra: filled && !U.hasCyr(say) ? `<div class="rv-pl">${filled}</div>` : '' }, onResult, xp: 5
+        reveal: { ru: say, say, pl: U.hasCyr(q.correct) && say ? '' : 'Odpowiedź: ' + q.correct, exp: q.exp, extra: filled && !U.hasCyr(say) ? `<div class="rv-pl">${filled}</div>` : '' }, onResult, xp: 5
       };
     }
   };

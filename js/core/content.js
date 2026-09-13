@@ -62,8 +62,11 @@
   C.abcUnits = RU.alphabetGroups.map(g => ({ ...g, letters: C.letters.filter(l => l.group === g.id), reading: (RU.readingWords[g.id] || []).map(s => s.split('|')) }));
 
   /* Dystraktory */
+  const meanings = pl => U.normPl(pl).replace(/\(.*?\)/g, '').split(/[;,]/).map(x => x.trim()).filter(Boolean);
   C.distractors = (word, n = 3, field = 'pl') => {
     const bad = new Set([U.normPl(word[field])]);
+    const mine = new Set(meanings(word.pl));
+    const ruHead = U.norm(word.ru.split(' / ')[0]);
     const out = [];
     const pools = [C.topicById[word.topic].ids.map(id => C.wordById[id]), C.words.filter(w => w.level === word.level), C.words];
     for (const pool of pools) {
@@ -71,7 +74,8 @@
         const v = U.normPl(w[field]);
         if (w.id === word.id || bad.has(v)) continue;
         // unikaj par ze wspólnym pierwszym znaczeniem
-        if (field === 'pl' && v.split(/[;,]/)[0].trim() === U.normPl(word.pl).split(/[;,]/)[0].trim()) continue;
+        if (meanings(w.pl).some(m => mine.has(m))) continue;
+        if (U.norm(w.ru.split(' / ')[0]) === ruHead) continue;
         bad.add(v); out.push(w);
         if (out.length >= n) return out;
       }

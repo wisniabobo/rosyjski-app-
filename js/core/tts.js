@@ -25,6 +25,16 @@
     setTimeout(load, 500); setTimeout(load, 2000);
   }
 
+  // Safari na iOS wymaga, by pierwsza wypowiedź była wywołana gestem użytkownika
+  let unlocked = false;
+  const unlock = () => {
+    if (unlocked || !synth) return;
+    unlocked = true;
+    try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; u.lang = 'ru-RU'; synth.speak(u); } catch (e) {}
+    load();
+  };
+  ['pointerdown', 'touchend', 'keydown'].forEach(ev => addEventListener(ev, unlock, { once: true, passive: true, capture: true }));
+
   function voice() {
     const want = App.settings().voice;
     return voices.find(v => v.voiceURI === want) || voices[0] || null;

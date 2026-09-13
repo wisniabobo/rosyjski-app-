@@ -94,8 +94,9 @@
         <button class="chip" data-r="tr">Transkrypcja</button>
         <button class="chip" data-r="pl">Tłumaczenie</button>
       </section>
+      <p class="muted small">👆 Dotknij dowolnego słowa, aby zobaczyć tłumaczenie i usłyszeć wymowę.</p>
       <article class="card reader">
-        ${t.paras.map((p, pi) => `<p class="rd-p">${sentences[pi].map(s => `<span class="rd-s" data-si="${si++}" data-say="${esc(U.strip(s))}">${esc(App.stressView(s))}</span>`).join('')}</p>
+        ${t.paras.map((p, pi) => `<p class="rd-p">${sentences[pi].map(s => `<span class="rd-s" data-si="${si++}" data-sent="${esc(U.strip(s))}">${App.stressView(s).split(/([А-Яа-яЁё\u0301-]+)/).map((part, k) => k % 2 ? `<span class="rw" data-w="${esc(part)}">${esc(part)}</span>` : esc(part)).join('')}</span>`).join('')}</p>
           <p class="rd-tr" hidden>[${App.trHTML(p)}]</p>
           <p class="rd-pl" hidden>${esc(t.parasPl[pi] || '')}</p>`).join('')}
       </article>
@@ -110,6 +111,8 @@
       </section>`;
     const spans = U.$$('.rd-s', view);
     view.onclick = async e => {
+      const rw = e.target.closest('.rw');
+      if (rw) { const sent = rw.closest('.rd-s'); return WordUI.popup(rw.dataset.w, sent.dataset.sent, rw); }
       const b = e.target.closest('[data-r]');
       if (!b) return;
       const act = b.dataset.r;
@@ -120,7 +123,7 @@
         if (playing) { delete view.dataset.playing; U.$('[data-r="play"]', view).innerHTML = `${U.icon('play')} Czytaj na głos`; return; }
         view.dataset.playing = '1';
         U.$('[data-r="play"]', view).innerHTML = `${U.icon('stop')} Zatrzymaj`;
-        TTS.speakList(spans.map(s => s.dataset.say), {
+        TTS.speakList(spans.map(s => s.dataset.sent), {
           slow: act === 'slow', gap: 250,
           onItem: i => { spans.forEach(s => s.classList.remove('speaking')); spans[i].classList.add('speaking'); spans[i].scrollIntoView({ block: 'center', behavior: 'smooth' }); },
           onEnd: () => { delete view.dataset.playing; spans.forEach(s => s.classList.remove('speaking')); const pb = U.$('[data-r="play"]', view); if (pb) pb.innerHTML = `${U.icon('play')} Czytaj na głos`; }

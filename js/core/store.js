@@ -4,7 +4,7 @@
   const MIN = 60e3, DAY = 864e5;
   const DEFAULTS = {
     theme: 'auto', voice: '', rate: 0.95, autoSpeak: true, showTranscr: true, showStress: true,
-    sessionSize: 10, dailyGoal: 200, translit: true, keyboard: true, sfx: true, haptics: true, name: ''
+    sessionSize: 10, dailyGoal: 200, translit: true, keyboard: true, speakTasks: true, sfx: true, haptics: true, name: ''
   };
 
   let S;

@@ -22,7 +22,9 @@
       U.shuffle(fresh).forEach(w => tasks.push(Ex.listen(w, mark(w.id))));
       U.shuffle(fresh).forEach(w => tasks.push(Ex.mcPlRu(w, mark(w.id))));
       if (fresh.length >= 4) tasks.push(Ex.match(U.sample(fresh, Math.min(5, fresh.length)), (id, ok) => { if (!ok) mistakes[id] = (mistakes[id] || 0) + 1; }));
+      U.shuffle(fresh).filter(Ex.stressable).slice(0, 3).forEach(w => tasks.push(Ex.stress(w, mark(w.id))));
       U.shuffle(fresh).slice(0, Math.ceil(fresh.length * 0.6)).forEach(w => tasks.push(Ex.typeRu(w, mark(w.id))));
+      if (Speech.supported && App.settings().speakTasks) U.sample(fresh, 2).forEach(w => tasks.push(Ex.speak(w, Sessions.speakHook)));
       const res = await Ex.run({
         title: `${t.icon} ${t.title} – nowe słowa`, tasks, requeue: true,
         onFinish: r => {
@@ -50,6 +52,7 @@
         const c = Store.card(id);
         const strong = c && c.ivl >= 7;
         const pool = strong ? [Ex.typeRu, Ex.listen, Ex.mcPlRu, Ex.listenType] : [Ex.mcRuPl, Ex.mcPlRu, Ex.listen, Ex.typeRu];
+        if (Ex.stressable(w)) pool.push(Ex.stress);
         if (U.strip(w.ru).length > 22) return U.pick([Ex.mcRuPl, Ex.mcPlRu, Ex.listen])(w, grade);
         return U.pick(pool)(w, grade);
       }).filter(Boolean);
@@ -69,11 +72,47 @@
       else if (mode === 'match') { tasks = []; for (let i = 0; i + 3 <= words.length; i += 5) tasks.push(Ex.match(words.slice(i, i + 5))); }
       else if (mode === 'type') tasks = words.map(w => Ex.typeRu(w, grade(w.id)));
       else if (mode === 'listen') tasks = words.map(w => U.pick([Ex.listen, Ex.listenType])(w, grade(w.id)));
+      else if (mode === 'stress') { const st = t.ids.map(id => C.wordById[id]).filter(Ex.stressable); tasks = U.sample(st, Math.min(15, st.length)).map(w => Ex.stress(w, Sessions.stressHook)); }
+      else if (mode === 'speak') tasks = words.slice(0, 8).map(w => Ex.speak(w, Sessions.speakHook));
       else tasks = words.map(w => U.pick([Ex.mcRuPl, Ex.mcPlRu, Ex.listen, Ex.typeRu])(w, grade(w.id)));
+      if (!tasks.length) { FX.toast('W tym temacie nie ma słów do tego ćwiczenia.'); return; }
       if (mode === 'flash') {
         await Ex.run({ title: `${t.icon} ${t.title} – karty`, tasks, requeue: false, retryWrong: false });
       } else await Ex.run({ title: `${t.icon} ${t.title}`, tasks, requeue: mode !== 'match' });
       App.render();
+    },
+
+    stressHook(ok) { if (!ok) return; const S = Store.state; S.stressHits = (S.stressHits || 0) + 1; if (S.stressHits >= 50) Store.unlock('stress50'); },
+    speakHook(ok) { if (!ok) return; const S = Store.state; S.speakOk = (S.speakOk || 0) + 1; Store.unlock('speak1'); },
+
+    // Mówienie: słowa i zdania już poznane (albo z bieżącego poziomu)
+    async speaking() {
+      if (!Speech.supported) { FX.toast('🎤 Rozpoznawanie mowy działa w Chrome (Android/komputer) i Safari (iPhone).'); return; }
+      const next = C.nextUnit();
+      const lvl = next && next.level !== 'A0' ? next.level : 'A1';
+      let words = C.words.filter(w => !Store.isNew(w.id) && U.strip(w.ru).length < 25);
+      if (words.length < 5) words = C.words.filter(w => w.level === lvl);
+      let sents = C.sentences.filter(s => Store.card(s.id));
+      if (sents.length < 3) sents = C.sentences.filter(s => s.level === lvl);
+      const tasks = [...U.sample(words, 5), ...U.sample(sents, 4)].map(x => Ex.speak(x, Sessions.speakHook));
+      await Ex.run({ title: '🎤 Trening mówienia', tasks, requeue: false, retryWrong: false, onFinish: () => { App.checkAchievements(); return '<div class="fin-note">Mów codziennie choć kilka zdań – wymowa szybko staje się naturalna.</div>'; } });
+      App.render();
+    },
+
+    async grammarReview() {
+      const S = Store.state;
+      let lessons = C.grammar.filter(g => S.grammar[g.id]);
+      if (!lessons.length) lessons = C.grammar.slice(0, 4);
+      const weak = lessons.filter(g => !S.grammar[g.id] || S.grammar[g.id].best < 90);
+      const pool = [...weak, ...weak, ...lessons].flatMap(g => g.questions.map(q => ({ q, g })));
+      const picked = [...new Map(U.shuffle(pool).map(x => [x.q.q, x])).values()].slice(0, 15);
+      await Ex.run({ title: '🔁 Trening gramatyki', tasks: picked.map(x => { const t = Ex.quiz(x.q); t.label = '📘 ' + x.g.title; return t; }), requeue: true });
+      App.render();
+    },
+
+    hardWords() {
+      return Object.entries(Store.state.cards).filter(([id, c]) => id.startsWith('w:') && C.wordById[id] && ((c.lapses || 0) >= 1 || (c.bad || 0) > (c.ok || 0)))
+        .sort((a, b) => ((b[1].lapses || 0) + (b[1].bad || 0)) - ((a[1].lapses || 0) + (a[1].bad || 0))).map(([id]) => C.wordById[id]);
     },
 
     // Szybka mieszanka: powtórki + kilka nowych
@@ -118,7 +157,7 @@
     const c = Store.card(w.id);
     const st = !c ? 'new' : c.s === 'review' && c.ivl >= 21 ? 'master' : c.s === 'review' ? 'review' : 'learn';
     const label = { new: 'nowe', learn: 'w nauce', review: 'powtarzane', master: 'opanowane' }[st];
-    return `<div class="word-row" data-say="${esc(U.strip(w.ru))}">
+    return `<div class="word-row" data-word="${esc(w.id)}" data-say="${esc(U.strip(w.ru.split(' / ')[0]))}">
       <button class="ic-btn spk" aria-label="Posłuchaj">${U.icon('vol')}</button>
       <div class="wr-main">
         <div class="wr-ru">${esc(App.stressView(w.ru))}</div>
@@ -146,6 +185,7 @@
         <div><b>${cnt.mastered}</b><span>opanowane</span></div>
         <div><b>${C.words.length - cnt.learned}</b><span>nowe</span></div>
         ${favs.length ? `<div><a href="#/fav"><b>${favs.length}</b><span>⭐ ulubione</span></a></div>` : ''}
+        ${Sessions.hardWords().length ? `<div><a href="#/hard"><b>${Sessions.hardWords().length}</b><span>🧗 trudne</span></a></div>` : ''}
       </section>
       ${C.LEVELS.filter(L => L.id !== 'A0').map(L => {
         const topics = C.topics.filter(t => t.level === L.id);
@@ -188,6 +228,8 @@
         <button class="mode" data-m="match">🧩<span>Pary</span></button>
         <button class="mode" data-m="listen">🎧<span>Słuchanie</span></button>
         <button class="mode" data-m="type">⌨️<span>Pisanie</span></button>
+        <button class="mode" data-m="stress">🎯<span>Akcent</span></button>
+        ${Speech.supported ? '<button class="mode" data-m="speak">🎤<span>Mówienie</span></button>' : ''}
         <button class="mode" data-m="mix">🎲<span>Mieszane</span></button>
         <button class="mode" data-m="play">▶️<span>Odsłuch listy</span></button>
       </section>
@@ -222,6 +264,22 @@
       const sample = U.sample(words, 15);
       const tasks = m.dataset.m === 'flash' ? sample.map(w => Ex.flash(w, ok => Store.grade(w.id, ok ? 3 : 1), 'pl')) : sample.map(w => U.pick([Ex.mcRuPl, Ex.mcPlRu, Ex.typeRu, Ex.listen])(w, ok => Store.grade(w.id, ok ? 3 : 1)));
       await Ex.run({ title: '⭐ Ulubione', tasks, requeue: m.dataset.m !== 'flash' });
+      App.render();
+    };
+  });
+
+  // Trudne słowa (z błędami)
+  App.route('/hard', view => {
+    const words = Sessions.hardWords();
+    view.innerHTML = App.header({ title: '🧗 Trudne słowa', back: '#/vocab', sub: words.length + ' słów, w których robisz błędy' }) +
+      (words.length ? `<section class="card hero-topic"><button class="btn primary big glow" data-m="go">Ćwicz trudne słowa</button></section>` : '') +
+      `<section class="card list">${words.map(wordRow).join('') || '<p class="muted pad">Brak – świetnie Ci idzie! 🎉</p>'}</section>`;
+    view.onclick = async e => {
+      const f = e.target.closest('[data-fav]'); if (f) { f.classList.toggle('on', Store.toggleFav(f.dataset.fav)); return; }
+      if (!e.target.closest('[data-m="go"]')) return;
+      const grade = w => ok => Store.grade(w.id, ok ? 3 : 1);
+      const tasks = words.slice(0, 15).flatMap(w => [Ex.typeRu(w, grade(w)), ...(Ex.stressable(w) && Math.random() < 0.4 ? [Ex.stress(w)] : [])]);
+      await Ex.run({ title: '🧗 Trudne słowa', tasks: U.shuffle(tasks), requeue: true });
       App.render();
     };
   });

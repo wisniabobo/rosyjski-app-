@@ -11,7 +11,9 @@ window.bot = async function (starter, wrongEvery = 0) {
     const doWrong = wrongEvery && n % wrongEvery === 0;
     try {
       if (t.type === 'intro') { b.querySelector('[data-act="intro-next"]').click(); await sleep(40); continue; }
-      if (t.type === 'mc') { const opts = b.querySelectorAll('.opt'); opts[doWrong ? (t.correct + 1) % opts.length : t.correct].click(); }
+      if (t.type === 'speak') { b.querySelector('[data-act="skip"]').click(); await sleep(40); continue; }
+      if (t.type === 'stress') { const btn = b.querySelector(`.sv[data-opt="${doWrong ? -1 : t.stressIdx}"]`) || [...b.querySelectorAll('.sv')].find(x => +x.dataset.opt !== t.stressIdx); btn.click(); }
+      else if (t.type === 'mc') { const opts = b.querySelectorAll('.opt'); opts[doWrong ? (t.correct + 1) % opts.length : t.correct].click(); }
       else if (t.type === 'type') { const i = b.querySelector('.type-in'); i.value = doWrong ? 'xyz' : U.strip(t.answer.split(' / ')[0]); b.querySelector('[data-act="check"]').click(); }
       else if (t.type === 'dictation') { const i = b.querySelector('.type-in'); i.value = U.strip(t.ru); b.querySelector('[data-act="check"]').click(); }
       else if (t.type === 'build') {

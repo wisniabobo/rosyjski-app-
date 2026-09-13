@@ -791,6 +791,7 @@ RU.vocab.push(
 ` },
 { id: 'a1-func', level: 'A1', icon: '🔗', title: 'Przysłówki i słówka funkcyjne', words: `
 и|i
+не|nie (partykuła przecząca)|stoi przed słowem, które przeczy: я не знаю
 а|a
 но|ale
 и́ли|albo, lub

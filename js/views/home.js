@@ -82,7 +82,7 @@
         <button class="action-tile hot" data-go="review">${U.icon('brain')}<b>Powtórki</b><span>${due ? `${due} czeka` : 'wszystko zrobione ✓'}</span>${due ? `<i class="badge">${due > 99 ? '99+' : due}</i>` : ''}</button>
         <button class="action-tile" data-go="quick">${U.icon('bolt')}<b>Szybka sesja</b><span>powtórki + nowe</span></button>
         <button class="action-tile" data-go="listen">${U.icon('vol')}<b>Słuchanie</b><span>zdania i dyktando</span></button>
-        <a class="action-tile" href="#/dict">${U.icon('search')}<b>Słownik</b><span>${C.words.length} słów</span></a>
+        ${Speech.supported ? `<button class="action-tile" data-go="speak">${U.icon('mic')}<b>Mówienie</b><span>sprawdź wymowę</span></button>` : `<a class="action-tile" href="#/dict">${U.icon('search')}<b>Słownik</b><span>${C.words.length} słów</span></a>`}
       </section>
 
       <section class="card wod">
@@ -128,6 +128,7 @@
       if (a === 'review') { if (Store.dueCount('w:')) Sessions.review('w:'); else if (Store.dueCount('s:')) Sessions.review('s:'); else Sessions.review('w:'); }
       if (a === 'quick') Sessions.quick();
       if (a === 'listen') Sessions.listening();
+      if (a === 'speak') Sessions.speaking();
       if (a === 'install') App.install();
     };
     if (!S.onboarded) App.onboarding();

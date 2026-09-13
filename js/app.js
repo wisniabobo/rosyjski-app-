@@ -100,6 +100,8 @@
       t1: ['📖', 'Pierwsza czytanka', 'Przeczytana i zrozumiana'], tall: ['🦉', 'Mól książkowy', 'Wszystkie czytanki'],
       lvlA0: ['🅰️', 'Alfabet zdany', 'Test A0'], lvlA1: ['🥉', 'Poziom A1', 'Zdany test A1'], lvlA2: ['🥈', 'Poziom A2', 'Zdany test A2'],
       lvlB1: ['🥇', 'Poziom B1', 'Zdany test B1'], lvlB2: ['🏆', 'Poziom B2', 'Zdany test B2 – cel osiągnięty!'],
+      speak1: ['🎤', 'Pierwsze słowa na głos', 'Rozpoznana poprawna wymowa'],
+      stress50: ['🎯', 'Mistrz akcentu', '50 trafionych akcentów'],
       perfect: ['💯', 'Perfekcja', '100% w lekcji gramatyki'],
       xp1k: ['✨', '1000 XP', 'Pracowity uczeń'], xp10k: ['💫', '10 000 XP', 'Mistrz wytrwałości']
     }
@@ -111,6 +113,8 @@
     if (document.body.classList.contains('in-session')) return;
     const sp = e.target.closest('[data-say]');
     const btn = e.target.closest('button, a, input, select, label');
+    const wordEl = e.target.closest('[data-word]');
+    if (wordEl && !btn && !e.target.closest('.lookup')) { WordUI.open(wordEl.dataset.word); return; }
     if (sp && (!btn || btn.classList.contains('spk') || btn === sp || sp.contains(btn) && btn.classList.contains('spk'))) {
       e.preventDefault();
       sp.classList.add('speaking');

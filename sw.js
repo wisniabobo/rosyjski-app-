@@ -1,5 +1,5 @@
 /* Service worker – generowany przez tools/build-sw.js */
-const CACHE = 'govori-be2470727a';
+const CACHE = 'govori-c134f75759';
 const ASSETS = [
   "./",
   "index.html",
@@ -9,6 +9,7 @@ const ASSETS = [
   "js/core/content.js",
   "js/core/fx.js",
   "js/core/phonetics.js",
+  "js/core/speech.js",
   "js/core/store.js",
   "js/core/tts.js",
   "js/core/util.js",
@@ -26,6 +27,7 @@ const ASSETS = [
   "js/data/vocab_b2.js",
   "js/ui/exercise.js",
   "js/ui/keyboard.js",
+  "js/ui/word.js",
   "js/views/alphabet.js",
   "js/views/course.js",
   "js/views/grammar.js",
